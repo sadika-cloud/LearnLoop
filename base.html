@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillSwap - Share & Learn</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+ 
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="navbar-brand">SkillSwap</a>
+        <div class="search-container">
+            <input type="text" class="search-bar" placeholder="Search users or projects...">
+            <select class="search-type">
+                <option value="users">Users</option>
+                <option value="projects">Projects</option>
+            </select>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/profile">Profile</a>
+            <a href="/messages">Messages</a>
+            <a href="/login">Login</a>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

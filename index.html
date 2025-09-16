@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LearnLoop - Skill Swapping Platform</title>
+    <link rel="stylesheet" href=/static/index.css>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">LearnLoop</div>
+            <div class="nav-links">
+                {% if 'user_id' in session %}
+                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('logout') }}">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Login</a>
+                    <a href="{{ url_for('register') }}">Register</a>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+
+    <main class="hero">
+        <div class="hero-content">
+            <h1>Welcome to LearnLoop</h1>
+            <p>Share your programming skills and learn from others - completely free!</p>
+            <div class="cta-buttons">
+                <a href="{{ url_for('register') }}" class="btn primary">Get Started</a>
+                <a href="#how-it-works" class="btn secondary">Learn More</a>
+            </div>
+        </div>
+    </main>
+
+    <section id="how-it-works" class="features">
+        <h2>How It Works</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>Share Your Skills</h3>
+                <p>List the programming languages and technologies you're proficient in.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Connect with Others</h3>
+                <p>Find developers who want to learn your skills and have skills you want to learn.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Show Your Work</h3>
+                <p>Upload your portfolio and demonstrate your expertise.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Learn Together</h3>
+                <p>Message other users and start learning from each other.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; 2024 LearnLoop. All rights reserved.</p>
+    </footer>
+</body>
+</html>

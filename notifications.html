@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - LearnLoop</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='noti.css') }}">
+    
+</head>
+<body>
+    <header>
+        <div id="logoutModal" class="modal">
+            <div class="modal-content">
+                <h2>Confirm Logout</h2>
+                <p>Are you sure you want to logout?</p>
+                <div class="modal-buttons">
+                    <button onclick="logoutUser()" class="btn primary">Yes</button>
+                    <button onclick="closeLogoutModal()" class="btn secondary">No</button>
+                </div>
+            </div>
+        </div>
+        <nav>
+            <div class="logo">LearnLoop</div>
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('profile', username=session['username']) }}">Profile</a>
+                <a href="#" onclick="showLogoutModal()">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="notifications-container">
+        <h1>Notifications</h1>
+        {% if notifications %}
+        {% for notification in notifications %}
+            <div class="notification-card {% if not notification[4] %}unread{% endif %}" data-id="{{ notification[0] }}">
+                <div class="notification-icon">
+                    {% if notification[2] == 'star' %} ⭐
+                    {% elif notification[2] == 'review' %} 💬
+                    {% endif %}
+                </div>
+                <div class="notification-content">
+                    <p>
+                        <a href="{{ url_for('profile', username=notification[5]) }}" class="notification-link">
+                            {{ notification[5] }}
+                        </a>
+                        {{ notification[1] }} 
+                        <strong>"{{ notification[7] }}"</strong>
+                    </p>
+                    
+                    {% if notification[6] %}
+                        <p>
+                            <a href="{{ url_for('profile', username=notification[8]) }}" class="notification-link">
+                                View Project
+                            </a>
+                        </p>
+                    {% endif %}
+                </div>
+                <!-- Delete icon -->
+                <span class="delete-icon" onclick="deleteNotification({{ notification[0] }})"><i class="fa-solid fa-trash"></i></span>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="no-notifications">
+            <p>No notifications yet!</p>
+        </div>
+    {% endif %}
+    
+    </main>
+    
+
+    <footer>
+        <p>&copy; 2024 LearnLoop. All rights reserved.</p>
+    </footer>
+
+    <script>
+        function showLogoutModal() {
+            document.getElementById("logoutModal").style.display = "flex";
+        }
+        
+        function closeLogoutModal() {
+            document.getElementById("logoutModal").style.display = "none";
+        }
+        
+        function logoutUser() {
+            window.location.href = "/logout";
+        }
+
+        function deleteNotification(notificationId) {
+            // Send a request to delete the notification
+            fetch(`/delete_notification/${notificationId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // If deletion is successful, remove the notification from the DOM
+                    const notificationCard = document.querySelector(`.notification-card[data-id="${notificationId}"]`);
+                    if (notificationCard) {
+                        notificationCard.remove();
+                    }
+                } else {
+                    alert('Error deleting notification');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting notification:', error);
+            });
+        }
+    </script>
+</body>
+</html>

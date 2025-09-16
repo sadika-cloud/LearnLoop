@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ user[1] }}'s Profile - LearnLoop</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='profile.css') }}">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">LearnLoop</div>
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('messages') }}">Messages</a>
+                <a href="#" onclick="showLogoutModal()">Logout</a>
+            </div>
+        </nav>
+    </header>
+    <div id="logoutModal" class="modal">
+        <div class="modal-content">
+            <h2>Confirm Logout</h2>
+            <p>Are you sure you want to logout?</p>
+            <div class="modal-buttons">
+                <button onclick="logoutUser()" class="btn primary">Yes</button>
+                <button onclick="closeLogoutModal()" class="btn secondary">No</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="profile-page">
+        <section class="profile-header">
+            <div class="profile-info">
+                <div class="profile-photo-container">
+                    {% if user[6] %}
+    <img src="{{ url_for('static', filename='uploads/' + user[6]) }}" alt="Profile photo" class="profile-photo">
+{% else %}
+    <img src="{{ url_for('static', filename='uploads/default.jpg') }}" alt="Profile photo" class="profile-photo">
+{% endif %}
+
+                </div>
+                <div class="profile-details">
+                    <h1>{{ user[1] }}</h1>
+                    <p class="bio">{{ user[7] or 'No bio added yet.' }}</p>
+                    
+                    <div class="skills-section">
+                        <h3>Skills</h3>
+                        <p>{{ user[4] or 'No skills listed yet.' }}</p>
+                    </div>
+                    
+                    <div class="interests-section">
+                        <h3>Learning Interests</h3>
+                        <p>{{ user[5] or 'No learning interests listed yet.' }}</p>
+                    </div>
+
+                    {% if session['user_id'] == user[0] %}
+                        <button onclick="showEditModal()" class="btn primary">Edit Profile</button>
+                    {% else %}
+                        <button onclick="showMessageModal()" class="btn primary">Send Message</button>
+                    {% endif %}
+                    
+                </div>
+            </div>
+        </section>
+
+        <section class="user-projects">
+            {% if projects %}
+    <h2>{{ user[1] }}'s Projects</h2>
+{% endif %}
+
+<div class="projects-grid">
+    {% for project in projects %}
+    <div class="project-card" style="width: 100%;"> <!-- Increased Width -->
+        <div class="project-header">
+            <h3>{{ project[2] }}</h3>
+
+            <!-- Star Button -->
+            {% if session['user_id'] != user[0] %}
+            <button onclick="toggleStar({{ project[0] }})" 
+                    class="btn star-btn {% if project[0] in starred_projects %}starred{% endif %}" 
+                    data-project-id="{{ project[0] }}">
+                ⭐ <span class="stars">{{ project[6] }}</span>
+            </button>
+            {% else %}
+            <span class="stars">⭐ {{ project[6] }}</span>
+            {% endif %}
+
+            <!-- Edit & Delete Buttons (Only for Project Owner) -->
+            {% if session['user_id'] == user[0] %}
+            <button class="edit-btn" onclick="showEditProjectModal({{ project[0] }}, '{{ project[2] }}', '{{ project[3] }}')">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button class="delete-btn" onclick="showDeleteModal({{ project[0] }})">
+                <i class="fas fa-trash"></i>
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Project Description -->
+        <p class="project-description" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap;">{{ project[3] }}</p>
+
+        <!-- Actions: Download, Reviews -->
+        <div class="project-actions">
+            <a href="{{ url_for('static', filename='uploads/' + project[4]) }}"  
+               target="_blank" 
+               style="color: blue; text-decoration: underline; font-size: 12px; font-weight: small;">
+                Download Folder ({{ project[4] }})
+            </a>
+        </div>
+
+            {% if session['user_id'] != user[0] %}
+            <button onclick="openReviewModal({{ project[0] }})" class="btn primary" style="margin-top: 5px;">
+                Add Review
+            </button>
+            {% endif %}
+       
+            <!-- View Reviews (Always Visible) -->
+            <button onclick="showReviews({{ project[0] }})" class="btn secondary" style="margin-top: 10px;">
+                View Reviews {{ project[10] }}
+            </button>
+
+            <!-- Add Review (Only for Other Users) -->
+     
+
+        <!-- Uploaded Timestamp -->
+        <p class="timestamp">Uploaded: {{ project[5] }}</p>
+    </div>
+    {% endfor %}
+</div>
+
+        </section>
+    </main>
+                          <!-- View Reviews Modal -->
+<div id="reviewsModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeReviewsModal()">&times;</span>
+        <h3>Reviews</h3>
+        <div id="reviewsList"></div>
+    </div>
+</div>
+        <!-- Add Review Modal -->
+        <div id="reviewModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>Add Review</h2>
+                <textarea id="reviewContent" placeholder="Write your review..."></textarea>
+                <p id="reviewMessage" style="color: red; display: none;"></p>
+                <p id="reviewSuccessMessage" style="color: green; display: none;">Your review has been added successfully!</p>
+                <button id="submitReviewBtn" onclick="submitReview()" class="btn primary">Submit</button>
+                <button onclick="closeReviewModal()" class="btn secondary">Cancel</button>
+            </div>
+            </div>
+
+            <!-- Edit Review Modal -->
+<div id="editReviewModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h2>Edit Review</h2>
+        <textarea id="editReviewContent"></textarea>
+        <p id="editErrorMessage" style="color: red; display: none;"></p>
+        <button id="saveEditReview" class="btn primary">Save</button>
+        <button onclick="closeEditModal()" class="btn secondary">Cancel</button>
+    </div>
+</div>
+
+<!-- Delete Review Confirmation Modal -->
+<div id="deleteReviewModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h2>Confirm Delete</h2>
+        <p>Are you sure you want to delete this review?</p>
+        <button id="confirmDeleteReview" class="btn danger">Yes, Delete</button>
+        <button onclick="closeDeleteModal()" class="btn secondary">Cancel</button>
+    </div>
+</div>
+
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <h2>Confirm Delete</h2>
+        <p>Are you sure you want to delete this project?</p>
+        <div class="modal-buttons">
+            <button id="confirmDelete" class="btn danger">Delete</button>
+            <button onclick="closeDeleteModal()" class="btn secondary">Cancel</button>
+        </div>
+    </div>
+</div>
+<!-- Edit Project Modal -->
+<div id="editProjectModal" class="modal">
+    <div class="modal-content">
+        <h2>Edit Project</h2>
+        <form id="editProjectForm">
+            <input type="hidden" id="editProjectId" name="project_id">
+            <div class="form-group">
+                <label for="editTitle">Project Title</label>
+                <input type="text" id="editTitle" name="title" required>
+            </div>
+            <div class="form-group">
+                <label for="editDescription">Project Description</label>
+                <textarea id="editDescription" name="description" required></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn primary">Save Changes</button>
+                <button type="button" onclick="closeEditProjectModal()" class="btn secondary">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+    {% if session['user_id'] == user[0] %}
+    <!-- Edit Profile Modal -->
+    <div id="editProfileModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Edit Profile</h2>
+            <form action="{{ url_for('update_profile') }}" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="profile_photo">Profile Photo</label>
+                    <input type="file" id="profile_photo" name="profile_photo" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label for="bio">Bio</label>
+                    <textarea id="bio" name="bio">{{ user[7] }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="skills">Skills (comma separated)</label>
+                    <input type="text" id="skills" name="skills" value="{{ user[4] }}">
+                </div>
+                <div class="form-group">
+                    <label for="learning_interests">Learning Interests (comma separated)</label>
+                    <input type="text" id="learning_interests" name="learning_interests" value="{{ user[5] }}">
+                </div>
+                <button type="submit" class="btn primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    <div id="chatPopupTemplate" class="chat-popup" style="display: none;">
+        <div class="chat-header">
+            {% if user[6] %}
+            <img src="{{ url_for('static', filename='uploads/' + user[6]) }}" alt="Profile photo" class="profile-photo">
+        {% else %}
+            <img src="{{ url_for('static', filename='uploads/default.jpg') }}" alt="Profile photo" class="profile-photo">
+        {% endif %}
+          <span class="chat-username"></span>
+          <button class="minimize-chat" title="Minimize Chat">-</button>
+          <button class="close-chat" title="Close Chat">×</button>
+        </div>
+        <div class="chat-messages"></div>
+        <form class="chat-input" onsubmit="handleSubmit(event)">
+          <textarea name="message" placeholder="Type a message..." rows="2"></textarea>
+          <button type="button" class="emoji-button" onclick="openEmojiPicker()">
+            😊
+        </button>
+          <button type="submit" class="btn send" title="Send Message">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+          
+        </form>
+      </div>
+      <div id="emojiPicker" style="display:none;">
+        <div class="emoji-list"></div>
+      </div>
+       <footer>
+        <p>&copy; 2024 LearnLoop. All rights reserved.</p>
+    </footer>
+    <input type="hidden" id="loggedInUserId" value="{{ session['user_id'] }}">
+    <input type="hidden" id="profileOwnerId" value="{{ user[0] }}">
+    <script>
+
+        async function openEmojiPicker() {
+            const picker = document.getElementById('emojiPicker');
+            const emojiList = picker.querySelector('.emoji-list');
+            
+            console.log('Opening emoji picker...'); // Debugging log
+        
+            // Clear current emojis in the picker
+            emojiList.innerHTML = '';
+        
+            // Load emojis (static example list, could be dynamic)
+            const emojis = [
+    '😀', '😂', '😍', '😎', '😭', '😢', '😜', '😅', '😊', '😄', '😋', '🙌', '🥳', '😱', '🥺', '🤔',
+    '😆', '😏', '😉', '😬', '💀', '👻', '👀', '🎉', '✨', '🔥', '🌹', '💯', '👑', '😌', '😈', '💖',
+    '❤️', '💔', '💘', '💝', '🌈', '🦄', '🎶', '🎵', '🎧', '📸', '📱', '💻', '🖥️', '🖨️', '🖱️', '🎮',
+    '🏆', '🥇', '🥈', '🥉', '🏅', '🏀', '⚽', '🏈', '⚾', '🎯', '🎲', '🧩', '🃏', '🀄', '♠️', '♥️',
+    '♦️', '♣️', '🖤', '💚', '💙', '💛', '💜', '💙', '💚', '🧡', '🖤', '🤩', '😋', '🤡', '😴', '😷', 
+    '🤒', '🤕', '😷', '💉', '💊', '🧑‍⚕️', '👩‍⚕️', '👨‍⚕️', '👨‍🍳', '👩‍🍳', '💃', '🕺', '🦸‍♂️', '🦸‍♀️',
+    '👸', '🤴', '🦹‍♂️', '🦹‍♀️', '🤶', '🎅', '🧝‍♂️', '🧝‍♀️', '👨‍🎤', '👩‍🎤', '👨‍🎨', '👩‍🎨', '🧑‍🏫', '🧑‍🏭',
+    '🧑‍🔬', '🧑‍💻', '🧑‍🚀', '🧑‍✈️', '👩‍⚖️', '🧑‍⚖️', '🧑‍🌾', '🧑‍🍳', '🧑‍🍄', '🧑‍💼', '🤵', '👰', '👼',
+    '👑', '👗', '👠', '👢', '👚', '🧣', '🧤', '🧥', '🧢', '👒', '⛑️', '🎩', '🧶', '🧵', '🧺', '🛍️', '🪙'
+];
+
+        
+            // Add emojis to the picker
+           // Ensure each emoji is clickable
+emojis.forEach(emoji => {
+    const emojiElement = document.createElement('span');
+    emojiElement.className = 'emoji';
+    emojiElement.textContent = emoji;
+    
+    // Add click event to insert emoji
+    emojiElement.addEventListener('click', function() {
+        insertEmoji(emoji);  // Insert emoji on click
+    });
+    
+    emojiList.appendChild(emojiElement);
+});
+
+            // Toggle emoji picker visibility
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        }
+        
+
+        function insertEmoji(emoji) {
+            const chatElement = document.querySelector('.chat-popup[data-username]');
+            const textarea = chatElement.querySelector('textarea'); // Ensure we are targeting the correct textarea
+            
+            textarea.value += emoji; // Append emoji to current message
+           
+        }
+        
+        
+
+        window.addEventListener('click', function(e) {
+            const picker = document.getElementById('emojiPicker');
+            if (!picker.contains(e.target) && !e.target.classList.contains('emoji-button') && !e.target.classList.contains('emoji')) {
+                picker.style.display = 'none';
+            }
+        });
+        // Existing modal functionality
+        const editModal = document.getElementById('editProfileModal');
+        const messageModal = document.getElementById('messageModal');
+        const closeBtns = document.querySelectorAll('.close');
+
+        window.showEditModal = function() {
+            if (editModal) editModal.style.display = 'flex';
+        }
+
+        window.showMessageModal = function() {
+            if (messageModal) messageModal.style.display = 'flex';
+        }
+
+        window.closeMessageModal = function() {
+            if (messageModal) messageModal.style.display = 'none';
+        }
+
+        closeBtns.forEach(btn => {
+            btn.onclick = function() {
+                const modal = this.closest('.modal');
+                if (modal) modal.style.display = 'none';
+            }
+        });
+
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+
+       // Global chat management
+let activeChats = [];
+const maxChats = 3;
+
+// Called when clicking "Send Message" on the profile page
+window.showMessageModal = function() {
+  // Use the profile's username and avatar
+  const username = '{{ user[1] }}';
+  // Build avatar URL using your logic (here using a default fallback)
+  const avatar = '{{ user[6] if user[6] else "default-avatar.png" }}'
+                 ? '{{ url_for("static", filename="uploads/" + (user[6] if user[6] else "default-avatar.png")) }}'
+                 : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(username);
+  openChat(username, avatar);
+};
+
+function openChat(username, avatar) {
+    if (activeChats.includes(username)) return;
+  
+    if (activeChats.length >= maxChats) {
+      const oldestChat = activeChats.shift();
+      const oldestChatElement = document.querySelector(`[data-username="${oldestChat}"]`);
+      if (oldestChatElement) oldestChatElement.remove();
+    }
+  
+    const template = document.getElementById('chatPopupTemplate');
+    if (!template) {
+      console.error("Chat popup template not found!");
+      return;
+    }
+  
+    const chat = template.cloneNode(true);
+    chat.id = '';
+    chat.style.display = 'block';
+    chat.setAttribute('data-username', username);
+    chat.style.right = `${(activeChats.length * 320) + 20}px`;
+  
+    // Ensure avatar and username elements exist
+    const avatarElement = chat.querySelector('.chat-avatar');
+    const usernameElement = chat.querySelector('.chat-username');
+  
+    if (avatarElement) {
+      avatarElement.src = avatar || "{{ url_for('static', filename='uploads/default.jpg') }}";
+    } else {
+      console.error("Avatar element not found in chat template.");
+    }
+  
+    if (usernameElement) {
+      usernameElement.textContent = username;
+    } else {
+      console.error("Username element not found in chat template.");
+    }
+  
+    // Event handlers for close and minimize
+    chat.querySelector('.close-chat').onclick = () => closeChat(chat, username);
+    chat.querySelector('.minimize-chat').onclick = () => minimizeChat(chat);
+  
+    // Load chat history for this conversation
+    loadChatHistory(chat, username);
+  
+    // Append chat popup to a container (if exists) or body
+    const chatContainer = document.getElementById('chatContainer') || document.body;
+    chatContainer.appendChild(chat);
+    activeChats.push(username);
+  }
+  
+
+function closeChat(chatElement, username) {
+  chatElement.remove();
+  activeChats = activeChats.filter(chat => chat !== username);
+}
+
+function minimizeChat(chatElement) {
+  const messages = chatElement.querySelector('.chat-messages');
+  const input = chatElement.querySelector('.chat-input');
+  if (messages.style.display === 'none') {
+    messages.style.display = 'block';
+    input.style.display = 'flex';
+    chatElement.style.height = '400px';
+  } else {
+    messages.style.display = 'none';
+    input.style.display = 'none';
+    chatElement.style.height = '40px';
+  }
+}
+
+async function handleSubmit(event) {
+    event.preventDefault();
+    const chatPopup = event.target.closest('.chat-popup');
+    const username = chatPopup.getAttribute('data-username');
+    const textarea = chatPopup.querySelector('textarea');
+    const content = textarea.value.trim();
+    if (!content) return;
+  
+    try {
+      const response = await fetch('/send_message', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({recipient: username, content: content})
+      });
+      if (response.ok) {
+        textarea.value = '';
+        
+        // Create and append the new message to chat popup without reloading history
+        const messagesContainer = chatPopup.querySelector('.chat-messages');
+        const newMessage = document.createElement('div');
+        newMessage.className = 'chat-message sent';
+        newMessage.innerHTML = `
+          <div class="message-bubble">${content}</div>
+          <div class="message-status">sent</div>
+        `;
+        messagesContainer.appendChild(newMessage);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  
+        // Optionally, update the status for the most recent message
+        const conversationItem = document.querySelector(`.conversation-item[onclick*="${username}"]`);
+        if (conversationItem) {
+          const messagePreview = conversationItem.querySelector('.message-preview');
+          messagePreview.innerHTML = `
+            <span class="last-message">${content}</span>
+            <span class="message-status small">just now</span>
+          `;
+        }
+      } else {
+        console.error('Error sending message:', await response.json());
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  }
+  
+  async function loadChatHistory(chatElement, username) {
+    try {
+      const response = await fetch(`/get_chat_history/${username}`);
+      const messages = await response.json();
+  
+      const messagesContainer = chatElement.querySelector('.chat-messages');
+      messagesContainer.innerHTML = messages.map(msg => {
+        // Check if the message is sent or received
+        const messageClass = msg.sender_id == '{{ session.user_id }}' ? 'sent' : 'received';
+        const statusText = msg.sender_id == '{{ session.user_id }}' ? (msg.status || 'sent') : ''; // Only show status for sent messages
+  
+        return `
+          <div class="chat-message ${messageClass}">
+            <div class="message-bubble">${msg.content}</div>
+            <div class="message-status" data-message-id="${msg.id}">
+              ${statusText}
+            </div>
+          </div>
+        `;
+      }).join('');
+  
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  
+      // Optionally, trigger "mark as read" for this conversation if the user hasn't sent the message
+      if (username !== '{{ session.username }}') {
+        await fetch(`/mark_messages_as_read/${username}`, { method: 'POST' });
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+    }
+  }
+  
+
+async function toggleStar(projectId) {
+    const response = await fetch(`/star/${projectId}`, { method: 'POST' });
+    const data = await response.json();
+
+    if (response.ok) {
+        const starBtn = document.querySelector(`[data-project-id="${projectId}"]`);
+        const starCount = starBtn.querySelector('.stars');
+
+        if (data.action === 'starred') {
+            starBtn.classList.add('starred');  // Add background highlight
+        } else {
+            starBtn.classList.remove('starred');  // Remove background highlight
+        }
+
+        starCount.textContent = ` ${data.starCount}`;
+    }
+}
+
+
+
+    let projectToDelete = null;
+
+    function showDeleteModal(projectId) {
+        projectToDelete = projectId;
+        document.getElementById("deleteModal").style.display = "flex";
+    }
+
+    function closeDeleteModal() {
+        document.getElementById("deleteModal").style.display = "none";
+        projectToDelete = null;
+    }
+
+    document.getElementById("confirmDelete").addEventListener("click", function() {
+        if (!projectToDelete) return;
+
+        fetch(`/delete_project/${projectToDelete}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeDeleteModal();
+                location.reload(); // Refresh the page to update the project list
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(error => console.error("Error deleting project:", error));
+    });
+
+    window.onclick = function(event) {
+        if (event.target.classList.contains("modal")) {
+            closeDeleteModal();
+        }
+    };
+
+
+    
+        function showEditProjectModal(projectId, title, description) {
+            document.getElementById("editProjectId").value = projectId;
+            document.getElementById("editTitle").value = title;
+            document.getElementById("editDescription").value = description;
+            document.getElementById("editProjectModal").style.display = "flex";
+        }
+    
+        function closeEditProjectModal() {
+            document.getElementById("editProjectModal").style.display = "none";
+        }
+    
+        document.getElementById("editProjectForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            
+            const projectId = document.getElementById("editProjectId").value;
+            const title = document.getElementById("editTitle").value;
+            const description = document.getElementById("editDescription").value;
+    
+            fetch(`/edit_project/${projectId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title: title, description: description })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeEditProjectModal();
+                    location.reload(); // Refresh page to show updated data
+                } else {
+                    alert("Error: " + data.error);
+                }
+            })
+            .catch(error => console.error("Error editing project:", error));
+        });
+    
+        window.onclick = function(event) {
+            if (event.target.classList.contains("modal")) {
+                closeEditProjectModal();
+            }
+        };
+
+        
+     
+     
+       
+        async function showReviews(projectId) {
+            // Get user data from hidden fields
+            const loggedInUserId = document.getElementById("loggedInUserId") ? document.getElementById("loggedInUserId").value : null;
+            const profileOwnerId = document.getElementById("profileOwnerId") ? document.getElementById("profileOwnerId").value : null;
+            const userIsOwner = loggedInUserId == profileOwnerId;
+        
+            if (!loggedInUserId) {
+                console.error("loggedInUserId is not defined");
+                return;
+            }
+        
+            const response = await fetch(`/get_reviews/${projectId}`);
+            const reviews = await response.json();
+        
+            if (reviews.error) {
+                alert(reviews.error);
+                return;
+            }
+        
+            const reviewsList = document.getElementById('reviewsList');
+            reviewsList.innerHTML = reviews.length 
+                ? reviews.map(r => {
+                    // Check if the review belongs to the logged-in user
+                    const isReviewOwner = r.user_id == loggedInUserId;
+                    let buttons = '';
+        
+                    if (userIsOwner) {
+                        // Profile owner viewing their own profile
+                        if (isReviewOwner) {
+                            // Their own review - show edit and delete
+                            buttons = `
+                                <span onclick="openEditModal(${r.id}, '${r.content.replace(/'/g, "\\'")}')" class="icon-btn" style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;">
+                                    <i class="fas fa-edit" title="Edit"></i>
+                                </span>
+                                <span onclick="openDeleteModal(${r.id})" class="icon-btn delete" style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;">
+                                    <i class="fas fa-trash-alt" title="Delete"></i>
+                                </span>
+                            `;
+                        } else {
+                            // Other's review on their profile - show only delete
+                            buttons = `
+                                <span onclick="openDeleteModal(${r.id})" class="icon-btn delete" style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;">
+                                    <i class="fas fa-trash-alt" title="Delete"></i>
+                                </span>
+                            `;
+                        }
+                    } else if (isReviewOwner) {
+                        // User viewing another profile, but it's their own review
+                        buttons = `
+                            <span onclick="openEditModal(${r.id}, '${r.content.replace(/'/g, "\\'")}')" class="icon-btn" style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;">
+                                <i class="fas fa-edit" title="Edit"></i>
+                            </span>
+                            <span onclick="openDeleteModal(${r.id})" class="icon-btn delete" style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;">
+                                <i class="fas fa-trash-alt" title="Delete"></i>
+                            </span>
+                        `;
+                    }
+        
+                    return `
+                        <p id="review-item-${r.id}">
+                            <img src="${r.profile_picture ? `/static/uploads/${r.profile_picture}` : '/static/uploads/default.jpg'}" 
+                                alt="Profile Picture" class="profile-photo" style="width: 40px; height: 40px; border:none;">
+                            
+                            <a href="/profile/${r.username}" style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;">
+                                ${r.username}:
+                            </a>
+        
+                            <span style="color:black; text-decoration: none; display:inline; position: relative; top: -16px;" id="review-text-${r.id}">${r.content}</span> 
+                            <em style="color:grey; font-size:small; text-decoration: none; display:inline; position: relative; top: -16px;">${r.timestamp}</em>
+                            ${buttons}
+                        </p>
+                    `;
+                }).join('') 
+                : '<p>No reviews yet.</p>';
+        
+            document.getElementById('reviewsModal').style.display = 'flex';
+        }
+        
+         // Attach event listeners to edit and delete buttons
+    attachReviewEventListeners();
+
+
+// Function to attach event listeners after loading reviews
+function attachReviewEventListeners() {
+    document.querySelectorAll('.icon-btn.delete').forEach(button => {
+        button.addEventListener('click', function() {
+            const reviewId = this.getAttribute('data-review-id');
+            openDeleteModal(reviewId);
+        });
+    });
+
+    document.querySelectorAll('.icon-btn.edit').forEach(button => {
+        button.addEventListener('click', function() {
+            const reviewId = this.getAttribute('data-review-id');
+            const content = this.getAttribute('data-content');
+            openEditModal(reviewId, content);
+        });
+    });
+}
+            
+
+    let deletingReviewId = null;
+    
+    function openDeleteModal(reviewId) {
+        deletingReviewId = reviewId;
+        document.getElementById('deleteReviewModal').style.display = 'flex';
+    }
+    
+    function closeDeleteModal() {
+        document.getElementById('deleteReviewModal').style.display = 'none';
+    }
+    
+    // Confirm Delete
+    document.getElementById('confirmDeleteReview').addEventListener('click', async function () {
+        const response = await fetch(`/delete_review/${deletingReviewId}`, { method: 'POST' });
+    
+        const result = await response.json();
+        if (result.success) {
+            document.getElementById(`review-item-${deletingReviewId}`).remove();
+            closeDeleteModal();
+        } else {
+            alert(result.error || "Failed to delete review.");
+        }
+    });
+    
+    
+    let editingReviewId = null;
+    
+    function openEditModal(reviewId, content) {
+        editingReviewId = reviewId;
+        document.getElementById('editReviewContent').value = content;
+        document.getElementById('editReviewModal').style.display = 'flex';
+    }
+    
+    function closeEditModal() {
+        document.getElementById('editReviewModal').style.display = 'none';
+    }
+    
+    // Save Edited Review
+    document.getElementById('saveEditReview').addEventListener('click', async function () {
+        const newContent = document.getElementById('editReviewContent').value.trim();
+        if (!newContent) {
+            document.getElementById('editErrorMessage').textContent = "Review content cannot be empty.";
+            document.getElementById('editErrorMessage').style.display = "block";
+            return;
+        }
+    
+        const response = await fetch(`/edit_review/${editingReviewId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: newContent })
+        });
+    
+        const result = await response.json();
+        if (result.success) {
+            document.getElementById(`review-text-${editingReviewId}`).textContent = newContent;
+            closeEditModal();
+        } else {
+            alert(result.error || "Failed to update review.");
+        }
+    });
+ 
+    
+            
+        
+        function closeModal() {
+            // Close the modal
+            document.getElementById('reviewsModal').style.display = 'none';
+        }
+        function showLogoutModal() {
+            document.getElementById("logoutModal").style.display = "flex";
+        }
+        
+        function closeLogoutModal() {
+            document.getElementById("logoutModal").style.display = "none";
+        }
+        
+        function logoutUser() {
+            window.location.href = "/logout";
+        }
+       
+       
+        function openReviewModal(projectId) {
+            document.getElementById('reviewModal').style.display = 'block';
+            document.getElementById('reviewModal').dataset.projectId = projectId;
+            document.getElementById('reviewContent').value = '';
+            document.getElementById('reviewMessage').style.display = 'none';
+            document.getElementById('reviewSuccessMessage').style.display = 'none';
+        }
+        
+        function closeReviewModal() {
+            document.getElementById('reviewModal').style.display = 'none';
+        }
+        
+        async function submitReview() {
+            const projectId = document.getElementById('reviewModal').dataset.projectId;
+            const content = document.getElementById('reviewContent').value;
+            const reviewMessage = document.getElementById('reviewMessage');
+            const reviewSuccessMessage = document.getElementById('reviewSuccessMessage');
+            const submitButton = document.getElementById('submitReviewBtn');
+            
+            if (!content) {
+                reviewMessage.textContent = 'Please write a review';
+                reviewMessage.style.display = 'block';
+                return;
+            }
+        
+            submitButton.disabled = true;
+            reviewMessage.style.display = 'none';
+            
+            const response = await fetch(`/review/${projectId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ content })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                reviewSuccessMessage.style.display = 'block';
+                document.getElementById('reviewContent').value = '';
+                setTimeout(() => closeReviewModal(), 2000);
+            } else {
+                reviewMessage.textContent = result.error || 'Failed to add review';
+                reviewMessage.style.display = 'block';
+            }
+            
+            submitButton.disabled = false;
+        }
+        
+        function closeReviewsModal() {
+            document.getElementById('reviewsModal').style.display = 'none';
+        }
+        
+        
+    </script>
+</body>
+</html>

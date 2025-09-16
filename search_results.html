@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Results - LearnLoop</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='search.css') }}">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">LearnLoop</div>
+            <div class="search-container">
+                <form action="{{ url_for('search') }}" method="GET" class="search-form">
+                    <input type="text" name="q" value="{{ query }}" placeholder="Search..." required>
+                    <select name="type" class="search-type">
+                        <option value="projects" {% if search_type == 'projects' %}selected{% endif %}>Projects</option>
+                        <option value="users" {% if search_type == 'users' %}selected{% endif %}>Users</option>
+                    </select>
+                    <button type="submit" class="btn primary"><i class="fa fa-search"></i></button>
+                </form>
+            </div>
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('messages') }}">Messages</a>
+                <a href="{{ url_for('profile', username=session['username']) }}">Profile</a>
+                <a href="#" onclick="showLogoutModal()">Logout</a>
+            </div>
+        </nav>
+    </header>
+    <div id="logoutModal" class="modal">
+        <div class="modal-content">
+            <h2>Confirm Logout</h2>
+            <p>Are you sure you want to logout?</p>
+            <div class="modal-buttons">
+                <button onclick="logoutUser()" class="btn primary">Yes</button>
+                <button onclick="closeLogoutModal()" class="btn secondary">No</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="search-container">
+        <div class="search-header">
+            <h1>Search Results for "{{ query }}"</h1>
+        </div>
+
+        {% if search_type == 'users' %}
+        <div class="users-grid">
+            {% for user in users %}
+            <div class="user-card">
+                <img src="{{ url_for('static', filename='uploads/' + user.profile_photo) if user.profile_photo else 'https://ui-avatars.com/api/?name=' + user.username|urlencode }}" 
+                     alt="{{ user.username }}'s profile"
+                     class="profile-photo">
+                <h3>{{ user.username }}</h3>
+                <p class="bio">{{ user.bio }}</p>
+                <div class="skills">
+                    <h4>Skills: {{ user.skills }}</h4>
+                </div>
+                <a href="{{ url_for('profile', username=user.username) }}" class="btn secondary">View Profile</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="projects-grid">
+            {% for project in projects %}
+            <div class="project-card">
+                <div class="project-header">
+                    <div class="author">
+                        <a href="{{ url_for('profile', username=project[6]) }}" class="author-name">
+                            <img src="{{ url_for('static', filename='uploads/' + project[7]) if project[7] else 'https://ui-avatars.com/api/?name=' + project[6]|urlencode }}" 
+                                 alt="{{ project[6] }}'s profile"
+                                 class="profile-photo"
+                                 title="View {{ project[6] }}'s profile">
+                        </a>
+                        <a href="{{ url_for('profile', username=project[6]) }}" class="author-name">
+                            {{ project[6] }}
+                        </a>
+                        <button onclick="toggleStar({{ project[0] }})" 
+                                class="star-btn {% if project[0] in starred_projects %}starred{% endif %}" 
+                                data-project-id="{{ project[0] }}"
+                                data-star-count="{{ project[8] }}">
+                            ⭐ <span class="star-count">{{ project[8] }}</span>
+                        </button>
+                    </div>
+                </div>
+                <h3>{{ project[2] }}</h3>
+                <p class="project-description" style="max-height: 100px; overflow-y: auto; white-space: pre-wrap;">{{ project[3] }}</p>
+
+        
+                <div class="project-actions">
+                    <a href="{{ url_for('static', filename='uploads/' + project[4]) }}" target="_blank" style="color: blue; text-decoration: underline; font-size: 12px; font-weight: small;">
+                        Download Folder ({{ project[4] }})
+                    </a>
+                    <div class="project-actions" style="display: flex; flex-direction: column;">
+                        <button onclick="openReviewModal({{ project[0] }})" class="btn primary">Add Review</button>
+                        <button onclick="showReviews({{ project[0] }})" class="btn secondary">View Reviews {{ project[10] }}</button>
+                    </div>
+                </div>
+                <div class="project-footer">
+                    <p class="timestamp">Uploaded: {{ project[5] }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+{% endif %}        
+    </main>
+<div id="reviewModal" class="modal" style="display: none;">
+<div class="modal-content">
+    <h2>Add Review</h2>
+    <textarea id="reviewContent" placeholder="Write your review..."></textarea>
+    <p id="reviewMessage" style="color: red; display: none;"></p>
+    <p id="reviewSuccessMessage" style="color: green; display: none;">Your review has been added successfully!</p>
+    <button id="submitReviewBtn" onclick="submitReview()" class="btn primary">Submit</button>
+    <button onclick="closeReviewModal()" class="btn secondary">Cancel</button>
+</div>
+</div>
+
+<!-- Reviews Display Modal -->
+<div id="reviewsModal" class="modal" style="display: none;">
+    <div class="modal-content" style="padding: 20px; background: #fff; border-radius: 8px; max-width: 600px; margin-top: 20%;">
+        <h2 style="margin: 0;">Reviews</h2>
+        <div id="reviewsList"></div> <!-- Reviews will be dynamically inserted here -->
+        <button onclick="closeReviewsModal()" class="btncancel" style="display: block; margin: 20px auto 0; padding: 10px 20px; cursor: pointer; border: none; background-color:rgb(46, 45, 45); color: white; border-radius: 5px;">Close</button>
+    </div>
+</div>
+
+
+    <!-- Edit Review Modal -->
+    <div id="editReviewModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Edit Review</h2>
+            <textarea id="editReviewContent"></textarea>
+            <p id="editErrorMessage" style="color: red; display: none;"></p>
+            <button id="saveEditReview" class="btn primary">Save</button>
+            <button onclick="closeEditModal()" class="btn secondary">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteReviewModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Confirm Delete</h2>
+            <p>Are you sure you want to delete this review?</p>
+            <button id="confirmDeleteReview" class="btn danger">Yes, Delete</button>
+            <button onclick="closeDeleteModal()" class="btn secondary">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.star-btn').forEach(button => {
+                const starCount = button.getAttribute('data-star-count');
+                button.querySelector('.star-count').textContent = starCount;
+            });
+        });
+
+        async function toggleStar(projectId) {
+            try {
+                const response = await fetch(`/star/${projectId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+        
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+        
+                const starBtn = document.querySelector(`[data-project-id="${projectId}"]`);
+                if (!starBtn) return;
+        
+                const starCount = starBtn.querySelector('.star-count');
+                if (starCount) {
+                    starCount.textContent = data.starCount;
+                }
+        
+                // Toggle the starred class
+                if (data.action === 'starred') {
+                    starBtn.classList.add('starred');
+                } else {
+                    starBtn.classList.remove('starred');
+                }
+        
+                starBtn.setAttribute('data-star-count', data.starCount);
+            } catch (error) {
+                console.error('Error toggling star:', error);
+            }
+        }
+        
+
+        function openReviewModal(projectId) {
+            document.getElementById('reviewModal').style.display = 'block';
+            document.getElementById('reviewModal').dataset.projectId = projectId;
+            document.getElementById('reviewContent').value = '';
+            document.getElementById('reviewMessage').style.display = 'none';
+            document.getElementById('reviewSuccessMessage').style.display = 'none';
+        }
+        
+        function closeReviewModal() {
+            document.getElementById('reviewModal').style.display = 'none';
+        }
+        
+        async function submitReview() {
+            const projectId = document.getElementById('reviewModal').dataset.projectId;
+            const content = document.getElementById('reviewContent').value;
+            const reviewMessage = document.getElementById('reviewMessage');
+            const reviewSuccessMessage = document.getElementById('reviewSuccessMessage');
+            const submitButton = document.getElementById('submitReviewBtn');
+            
+            if (!content) {
+                reviewMessage.textContent = 'Please write a review';
+                reviewMessage.style.display = 'block';
+                return;
+            }
+        
+            submitButton.disabled = true;
+            reviewMessage.style.display = 'none';
+            
+            const response = await fetch(`/review/${projectId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ content })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                reviewSuccessMessage.style.display = 'block';
+                document.getElementById('reviewContent').value = '';
+                setTimeout(() => closeReviewModal(), 2000);
+            } else {
+                reviewMessage.textContent = result.error || 'Failed to add review';
+                reviewMessage.style.display = 'block';
+            }
+            
+            submitButton.disabled = false;
+        }
+        
+        function closeReviewsModal() {
+            document.getElementById('reviewsModal').style.display = 'none';
+        }
+        let editingReviewId = null;
+        let deletingReviewId = null;
+
+        async function showReviews(projectId) {
+            const response = await fetch(`/get_reviews/${projectId}`);
+            const reviews = await response.json();
+
+            if (reviews.error) {
+                alert(reviews.error);
+                return;
+            }
+
+            const reviewsList = document.getElementById('reviewsList');
+            reviewsList.innerHTML = reviews.length 
+                ? reviews.map(r => `
+                    <p id="review-item-${r.id}">
+
+    <img src="${r.profile_picture ? `/static/uploads/${r.profile_picture}` : '/static/uploads/default.jpg'}" 
+        alt="Profile Picture" class="profile-photo" style="vertical-align: middle;">
+    
+    <a href="/profile/${r.username}" style="color:black; text-decoration: none; display: inline-block; position: relative; top: -2px; vertical-align: middle;">
+        ${r.username}:
+    </a>
+
+
+ <span style="position: relative; top: -2px;" id="review-text-${r.id}">${r.content}</span>
+ 
+                       <em style="font-size: 0.8em; color: grey; margin-top: 5px;text-style:none;">${r.timestamp}</em>
+
+        
+                        {% if session['user_id'] %}
+                            ${r.user_id === {{ session['user_id'] }} ? `
+                                <span onclick="openEditModal(${r.id}, '${r.content.replace(/'/g, "\\'")}')" class="icon-btn">
+                                    <i class="fas fa-edit" title="Edit"></i>
+                                </span>
+                                <span onclick="openDeleteModal(${r.id})" class="icon-btn delete">
+                                    <i class="fas fa-trash-alt" title="Delete"></i>
+                                </span>
+                            ` : ''}
+                        {% endif %}
+                     
+                    </p>
+                `).join('') 
+                : '<p>No reviews yet.</p>';
+           
+            document.getElementById('reviewsModal').style.display = 'block';
+        }
+
+        function openEditModal(reviewId, content) {
+            editingReviewId = reviewId;
+            document.getElementById('editReviewContent').value = content;
+            document.getElementById('editReviewModal').style.display = 'block';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editReviewModal').style.display = 'none';
+        }
+
+        document.getElementById('saveEditReview').addEventListener('click', async function () {
+            const newContent = document.getElementById('editReviewContent').value;
+            if (!newContent.trim()) {
+                document.getElementById('editErrorMessage').textContent = "Review content cannot be empty.";
+                document.getElementById('editErrorMessage').style.display = "block";
+                return;
+            }
+
+            const response = await fetch(`/edit_review/${editingReviewId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: newContent })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById(`review-text-${editingReviewId}`).textContent = newContent;
+                closeEditModal();
+            } else {
+                alert(result.error || "Failed to update review.");
+            }
+        });
+
+        function openDeleteModal(reviewId) {
+            deletingReviewId = reviewId;
+            document.getElementById('deleteReviewModal').style.display = 'block';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteReviewModal').style.display = 'none';
+        }
+
+        document.getElementById('confirmDeleteReview').addEventListener('click', async function () {
+            const response = await fetch(`/delete_review/${deletingReviewId}`, { method: 'POST' });
+
+            const result = await response.json();
+            if (result.success) {
+                const reviewElement = document.getElementById(`review-item-${deletingReviewId}`);
+                if (reviewElement) {
+                    reviewElement.remove();
+                }
+                closeDeleteModal();
+            } else {
+                alert(result.error || "Failed to delete review.");
+            }
+        });
+
+        function closeReviewsModal() {
+            document.getElementById('reviewsModal').style.display = 'none';
+        }
+
+        function showLogoutModal() {
+            document.getElementById("logoutModal").style.display = "flex";
+        }
+
+        function closeLogoutModal() {
+            document.getElementById("logoutModal").style.display = "none";
+        }
+
+        function logoutUser() {
+            window.location.href = "/logout";
+        }
+    </script>
+</body>
+</html>

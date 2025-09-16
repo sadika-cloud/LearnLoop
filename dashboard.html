@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - LearnLoop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+    <style>
+  
+    </style>
+</head>
+<body>
+    <header>
+        <nav id="navbar">
+            <div class="logo">LearnLoop</div>
+            
+                <div class="search-container">
+                    <button id="search-toggle" class="btn primary" onclick="toggleSearch()">
+                        
+                        <span id="close-icon" style="display:none;"><i class="fa fa-times"></i></span>
+                    </button>
+                    <div id="search-bar" class="search-bar" style="display:none;">
+                        <form action="{{ url_for('search') }}" method="GET" class="search-form">
+                            <input type="text" name="q" placeholder="Search..." required>
+                            <select name="type" class="search-type">
+                                <option value="projects">Projects</option>
+                                <option value="users">Users</option>
+                            </select>
+                            <button type="submit" class="btn primary"><i class="fa fa-search"></i></button>
+                        </form>
+                    </div>
+                </div>
+                
+                
+                
+            
+            <div class="nav-links">
+                <button id="search-toggle" class="btn primary" onclick="toggleSearch()" style="display:inline;">
+                    <span style="font-size:15.4px; " id="search-icon">Search</span>
+                    </button>
+                    <a href="{{ url_for('messages') }}" class="messages-link">
+                        Messages
+                        <span class="notification-badge" id="messages-badge" style="display: none;">0</span>
+                    </a>
+                    <a href="{{ url_for('notifications') }}" class="notifications-badge" onclick="markNotificationsAsRead()">
+                        Notifications
+                        <span class="notification-count" id="notifications-badge" style="display: none;">0</span>
+                    </a>
+                    
+                <a href="{{ url_for('profile', username=session['username']) }}">Profile</a>
+                <a href="#" onclick="showLogoutModal()">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <div id="logoutModal" class="modal">
+        <div class="modal-content">
+            <h2 style="text-align: center;">Confirm Logout</h2>
+
+            <p style="text-align: center;">Are you sure you want to logout?</p>
+            <div class="modal-buttons">
+                <button onclick="logoutUser()" class="btnyes" id="yesbtn">Yes</button>
+                <button onclick="closeLogoutModal()" class="btnno" id="nobtn">No</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="dashboard">
+        <div class="dashboard-grid">
+            <section class="discover-section">
+                <h2 style="font-align:center;">Discover Projects</h2>
+                <div class="projects-grid">
+                    {% for project in random_projects %}
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="author">
+                                
+                                    <img src="{{ url_for('static', filename='uploads/' + project[7]) if project[7] else 'https://ui-avatars.com/api/?name=' + project[6]|urlencode }}" 
+                                         alt="{{ project[6] }}'s profile"
+                                         class="profile-photo"
+                                         title="View {{ project[6] }}'s profile">
+                                </a>
+                                <a href="{{ url_for('profile', username=project[6]) }}" 
+                                   class="author-name" 
+                                   title="View {{ project[6] }}'s profile">
+                                    {{ project[6] }}
+                               
+                                </a>
+                                <button onclick="toggleStar({{ project[0] }})" 
+                                class=" star-btn {% if project[0] in starred_projects %}starred{% endif %}" 
+                                data-project-id="{{ project[0] }}"
+                                data-star-count="{{ project[8] }}">
+                            ⭐ <span class="star-count">{{ project[8] }}</span>
+                        </button>
+                            </div>
+                            
+                           
+                        </div>
+                        <h3>{{ project[2] }}</h3>
+                        <p class="project-description" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap;">{{ project[3] }}</p>
+
+                        <div class="project-actions">
+                            <a href="{{ url_for('static', filename='uploads/' + project[4]) }}"  target="_blank" style="color: blue; text-decoration: underline; font-size: 13px; font-weight: small; padding-bottom: 0;">
+                                download folder ({{ project[4] }})
+                            </a>
+                            
+                            
+                            
+                            
+      
+                            <div class="project-actions" style="display: flex; flex-direction: column;">
+                                <button onclick="openReviewModal({{ project[0] }})" class="btn primary" id="addreview">
+                                    Add Review
+                                </button>
+                                <button onclick="showReviews({{ project[0] }})" class="btn secondary" id="viewreview">
+                                    View Reviews {{ project[10] }}
+                                </button>
+                            </div>
+                            
+</div>
+<div id="reviewModal" class="modal" style="display: none;">
+<div class="modal-content">
+    <h2>Add Review</h2>
+    <textarea id="reviewContent" placeholder="Write your review..."></textarea>
+    <p id="reviewMessage" style="color: red; display: none;"></p>
+    <p id="reviewSuccessMessage" style="color: green; display: none;">Your review has been added successfully!</p>
+    <button id="submitReviewBtn" onclick="submitReview()" class="btnsubmit">Submit</button>
+    <button onclick="closeReviewModal()" class="btncancel">Cancel</button>
+</div>
+</div>
+
+<!-- Reviews Display Modal -->
+<div id="reviewsModal" class="modal" style="display: none;">
+    <div class="modal-content" style="padding: 20px; background: #fff; border-radius: 8px; max-width: 600px; margin-top: 20%;">
+        <h2 style="margin: 0;">Reviews</h2>
+        <div id="reviewsList"></div> <!-- Reviews will be dynamically inserted here -->
+        <button onclick="closeReviewsModal()" class="btncancel" style="display: block; margin: 20px auto 0; padding: 10px 20px; cursor: pointer; border: none; background-color:rgb(46, 45, 45); color: white; border-radius: 5px;">Close</button>
+    </div>
+</div>
+
+
+<!-- Edit Review Modal -->
+<div id="editReviewModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h2>Edit Review</h2>
+        <textarea id="editReviewContent"></textarea>
+        <p id="editErrorMessage" style="color: red; display: none;"></p>
+        <button id="saveEditReview" class="btnsubmit">Save</button>
+        <button onclick="closeEditModal()" class="btncancel">Cancel</button>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteReviewModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h2>Confirm Delete</h2>
+        <p>Are you sure you want to delete this review?</p>
+        <button id="confirmDeleteReview" class="btnsubmit">Yes, Delete</button>
+        <button onclick="closeDeleteModal()" class="btncancel">Cancel</button>
+    </div>
+</div>
+ <div class="project-footer">
+                            <p class="timestamp">Uploaded: {{ project[5] }}</p>
+                            
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="upload-section" style="height: 500px; overflow: hidden;">
+            
+                <h2>Share Your Work</h2>
+                <form action="{{ url_for('upload_portfolio') }}" method="POST" enctype="multipart/form-data" class="portfolio-form">
+                    <div class="form-group">
+                        <label for="title">Project Title</label>
+                        <input type="text" id="title" name="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <input type="file" id="file" name="file" required>
+                        <label for="file">(zip) </label>
+                        <span class="file-name"></span>
+                    </div>
+                    <button type="submit" class="btn primary">Upload</button>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update all star counts with their initial values
+            document.querySelectorAll('.star-btn').forEach(button => {
+                const starCount = button.getAttribute('data-star-count');
+                const starCountSpan = button.querySelector('.star-count');
+                if (starCountSpan) {
+                    starCountSpan.textContent = starCount;
+                }
+            });
+        });
+        
+        window.toggleStar = async function(projectId) {
+            try {
+                const response = await fetch(`/star/${projectId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+        
+                // Get the specific star button for this project
+                const starBtn = document.querySelector(`[data-project-id="${projectId}"]`);
+                if (!starBtn) return;
+        
+                // Update star count
+                const starCount = starBtn.querySelector('.star-count');
+                if (starCount) {
+                    starCount.textContent = data.starCount;
+                }
+        
+                // Update button appearance
+                if (data.action === 'starred') {
+                    starBtn.classList.add('starred');
+                } else {
+                    starBtn.classList.remove('starred');
+                }
+                
+                // Update the data-star-count attribute
+                starBtn.setAttribute('data-star-count', data.starCount);
+            } catch (error) {
+                console.error('Error toggling star:', error);
+            }
+        };
+        
+        function showLogoutModal() {
+            document.getElementById("logoutModal").style.display = "flex";
+        }
+        
+        function closeLogoutModal() {
+            document.getElementById("logoutModal").style.display = "none";
+        }
+        
+        function logoutUser() {
+            window.location.href = "/logout";
+        }
+        function openReviewModal(projectId) {
+            document.getElementById('reviewModal').style.display = 'block';
+            document.getElementById('reviewModal').dataset.projectId = projectId;
+            document.getElementById('reviewContent').value = '';
+            document.getElementById('reviewMessage').style.display = 'none';
+            document.getElementById('reviewSuccessMessage').style.display = 'none';
+        }
+        
+        function closeReviewModal() {
+            document.getElementById('reviewModal').style.display = 'none';
+        }
+        async function submitReview() {
+            const projectId = document.getElementById('reviewModal').dataset.projectId;
+            const content = document.getElementById('reviewContent').value;
+            const reviewMessage = document.getElementById('reviewMessage');
+            const reviewSuccessMessage = document.getElementById('reviewSuccessMessage');
+            const submitButton = document.getElementById('submitReviewBtn');
+            if (!content) {
+                reviewMessage.textContent = 'Please write a review';
+                reviewMessage.style.display = 'block';
+                return;
+            }
+            submitButton.disabled = true;
+            reviewMessage.style.display = 'none';
+            
+            const response = await fetch(`/review/${projectId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ content })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                reviewSuccessMessage.style.display = 'block';
+                document.getElementById('reviewContent').value = '';
+                setTimeout(() => closeReviewModal(), 2000);
+            } else {
+                reviewMessage.textContent = result.error || 'Failed to add review';
+                reviewMessage.style.display = 'block';
+            }
+            
+            submitButton.disabled = false;
+        }
+        function closeReviewsModal() {
+            document.getElementById('reviewsModal').style.display = 'none';
+        }
+        let editingReviewId = null;
+        let deletingReviewId = null;
+        async function showReviews(projectId) {
+            const response = await fetch(`/get_reviews/${projectId}`);
+            const reviews = await response.json();
+        
+            if (reviews.error) {
+                alert(reviews.error);
+                return;
+            }
+            const reviewsList = document.getElementById('reviewsList');
+            reviewsList.innerHTML = reviews.length 
+                ? reviews.map(r => `
+                    <p id="review-item-${r.id}">
+                          <img src="${r.profile_picture ? `/static/uploads/${r.profile_picture}` : '/static/uploads/default.jpg'}" 
+        alt="Profile Picture" class="profile-photo" style="width: 40px; height: 40px; object-fit: cover;">
+    
+   <a href="/profile/${r.username}" style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;">
+    ${r.username}:
+</a>
+                        <span style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;" id="review-text-${r.id}">${r.content}</span> 
+                        <em style="color:grey; font-size:small; text-decoration: none; display:inline; position: relative; top: -15px;">${r.timestamp}</em>
+        
+                        {% if session['user_id'] %}
+                            ${r.user_id === {{ session['user_id'] }} ? `
+                                <span style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;" onclick="openEditModal(${r.id}, '${r.content.replace(/'/g, "\\'")}')" class="icon-btn">
+                                    <i class="fas fa-edit" title="Edit"></i>
+                                </span>
+                                <span style="color:black; text-decoration: none; display:inline; position: relative; top: -15px;" onclick="openDeleteModal(${r.id})" class="icon-btn delete">
+                                    <i class="fas fa-trash-alt" title="Delete"></i>
+                                </span>
+                            ` : ''}
+                        {% endif %}
+                    </p>
+                `).join('') 
+                : '<p>No reviews yet.</p>';
+        
+            document.getElementById('reviewsModal').style.display = 'block';
+        }
+        /* Open Edit Modal */
+        function openEditModal(reviewId, content) {
+            editingReviewId = reviewId;
+            document.getElementById('editReviewContent').value = content;
+            document.getElementById('editReviewModal').style.display = 'block';
+        }
+        
+        /* Close Edit Modal */
+        function closeEditModal() {
+            document.getElementById('editReviewModal').style.display = 'none';
+        }
+        
+        /* Save Edited Review */
+        document.getElementById('saveEditReview').addEventListener('click', async function () {
+            const newContent = document.getElementById('editReviewContent').value;
+            if (!newContent.trim()) {
+                document.getElementById('editErrorMessage').textContent = "Review content cannot be empty.";
+                document.getElementById('editErrorMessage').style.display = "block";
+                return;
+            }
+        
+            const response = await fetch(`/edit_review/${editingReviewId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: newContent })
+            });
+        
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById(`review-text-${editingReviewId}`).textContent = newContent;
+                closeEditModal();
+            } else {
+                alert(result.error || "Failed to update review.");
+            }
+        });
+            function openDeleteModal(reviewId) {
+                deletingReviewId = reviewId;
+                document.getElementById('deleteReviewModal').style.display = 'block';
+            }
+            
+            /* Close Delete Modal */
+            function closeDeleteModal() {
+                document.getElementById('deleteReviewModal').style.display = 'none';
+            }
+            
+            /* Confirm Delete */
+            document.getElementById('confirmDeleteReview').addEventListener('click', async function () {
+                const response = await fetch(`/delete_review/${deletingReviewId}`, { method: 'POST' });
+            
+                const result = await response.json();
+                if (result.success) {
+                    // Remove the deleted review from the UI instantly
+                    const reviewElement = document.getElementById(`review-item-${deletingReviewId}`);
+                    if (reviewElement) {
+                        reviewElement.remove(); // Instantly removes the review from the modal
+                    }
+            
+                    // Close the delete modal
+                    closeDeleteModal();
+                } else {
+                    alert(result.error || "Failed to delete review.");
+                }
+            });
+        async function editReview(reviewId) {
+            const newContent = prompt("Edit your review:");
+            if (!newContent) return;
+        
+            const response = await fetch(`/edit_review/${reviewId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: newContent })
+            });
+        
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById(`review-text-${reviewId}`).textContent = newContent;
+            } else {
+                alert(result.error || "Failed to update review.");
+            }
+        }
+        
+        async function deleteReview(reviewId) {
+            if (!confirm("Are you sure you want to delete this review?")) return;
+        
+            const response = await fetch(`/delete_review/${reviewId}`, { method: 'POST' });
+        
+            const result = await response.json();
+            if (result.success) {
+                showReviews(); // Refresh the reviews
+            } else {
+                alert(result.error || "Failed to delete review.");
+            }
+        }
+        document.addEventListener("DOMContentLoaded", () => {
+            const fileInput = document.getElementById("file")
+            const fileNameDisplay = document.querySelector(".file-name")
+          
+            fileInput.addEventListener("change", function (e) {
+              if (this.files && this.files.length > 0) {
+                fileNameDisplay.textContent = this.files[0].name
+              } else {
+                fileNameDisplay.textContent = ""
+              }
+            })
+          })
+          
+          function toggleSearch() {
+            var searchBar = document.getElementById('search-bar');
+            var searchIcon = document.getElementById('search-icon');
+            var closeIcon = document.getElementById('close-icon');
+            
+            // Toggle the display of the search bar
+            if (searchBar.style.display === 'none' || searchBar.style.display === '') {
+                searchBar.style.display = 'block';  // Show the search bar
+                searchIcon.style.display = 'none';  // Hide the search icon
+                closeIcon.style.display = 'inline'; // Show the close icon
+            } else {
+                searchBar.style.display = 'none';   // Hide the search bar
+                searchIcon.style.display = 'inline'; // Show the search icon
+                closeIcon.style.display = 'none';   // Hide the close icon
+            }
+        }
+        async function updateNotificationBadges() {
+            try {
+                // Fetch unread counts
+                const [messagesResponse, notificationsResponse] = await Promise.all([
+                    fetch('/unread_messages_count'),
+                    fetch('/unread_notifications_count')
+                ]);
+
+                const messagesData = await messagesResponse.json();
+                const notificationsData = await notificationsResponse.json();
+
+                // Update messages badge
+                const messagesBadge = document.getElementById('messages-badge');
+                if (messagesData.count > 0) {
+                    messagesBadge.textContent = messagesData.count;
+                    messagesBadge.style.display = 'flex';
+                } else {
+                    messagesBadge.style.display = 'none';
+                }
+
+                // Update notifications badge
+                const notificationsBadge = document.getElementById('notifications-badge');
+                if (notificationsData.count > 0) {
+                    notificationsBadge.textContent = notificationsData.count;
+                    notificationsBadge.style.display = 'flex';
+                } else {
+                    notificationsBadge.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error updating notification badges:', error);
+            }
+        }
+
+        // Update badges when page loads
+        document.addEventListener('DOMContentLoaded', updateNotificationBadges);
+
+        // Update badges periodically (every 30 seconds)
+        setInterval(updateNotificationBadges, 30000);
+        async function markNotificationsAsRead() {
+            try {
+                // Call backend endpoint to mark notifications as read
+                const response = await fetch('/mark_notifications_as_read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (response.ok) {
+                    // Hide the badge immediately
+                    document.getElementById('notifications-badge').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error marking notifications as read:', error);
+            }
+        }
+        function updateBadgeCounts() {
+            // Update unread messages count
+            fetch('/unread_messages_count')
+                .then(response => response.json())
+                .then(data => {
+                    const messagesBadge = document.getElementById('messages-badge');
+                    if (data.count > 0) {
+                        messagesBadge.textContent = data.count;
+                        messagesBadge.style.display = 'flex';
+                    } else {
+                        messagesBadge.style.display = 'none';
+                    }
+                });
+    
+            // Update unread notifications count
+            fetch('/unread_notifications_count')
+                .then(response => response.json())
+                .then(data => {
+                    const notificationsBadge = document.getElementById('notifications-badge');
+                    if (data.count > 0) {
+                        notificationsBadge.textContent = data.count;
+                        notificationsBadge.style.display = 'flex';
+                    } else {
+                        notificationsBadge.style.display = 'none';
+                    }
+                });
+        }
+    
+        // Update counts every 5 seconds
+        setInterval(updateBadgeCounts, 2000);
+    
+        // Initial update when page loads
+        document.addEventListener
+ 
+    </script>
+</body>
+</html>
+

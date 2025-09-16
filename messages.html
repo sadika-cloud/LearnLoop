@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages - LearnLoop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='messages.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+
+ 
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">LearnLoop</div>
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="#" onclick="showLogoutModal()">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <div id="logoutModal" class="modal_lgout">
+        <div class="modal-content-lgout">
+            <h2>Confirm Logout</h2>
+            <p>Are you sure you want to logout?</p>
+            <div class="modal-buttons">
+                <button onclick="logoutUser()" class="btnyes" id="yesbtn">Yes</button>
+                <button onclick="closeLogoutModal()" class="btnno" id="nobtn">No</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="messages-container">
+        <div class="conversations-sidebar">
+            <h2>Recent Chats</h2>
+            <div class="conversation-list">
+                {% if conversations %}
+                    {% for conv in conversations %}
+                    <div class="conversation-item" onclick="openChat('{{ conv.username }}')">
+                        <img src="{{ url_for('static', filename='uploads/' + (conv.profile_photo if conv.profile_photo else 'default.jpg')) }}" 
+                             alt="{{ conv.username }}'s avatar" 
+                             class="chat-avatar">
+                        <div class="conversation-info">
+                            <span class="username">{{ conv.username }}</span>
+                            <span class="last-message">{{ conv.last_message }}</span>
+                              <span sent class="message-status small">{{ conv.status }}  </span>
+                               
+
+                        </div>
+                        {% if conv.unread %}
+                        <div class="unread-indicator"></div>
+                        {% endif %}
+                        
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-messages">
+                        <p>No messages yet</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+<div id="chatPopupTemplate" class="chat-popup minimized" style="display: none;">
+  <div class="chat-header">
+    <img src="" alt="User Avatar" class="chat-avatar">
+    <span class="chat-username">
+        <a href="#" class="chat-profile-link" target="_blank"></a>
+    </span>
+    
+    <button class="minimize-chat" title="Minimize/Maximize Chat">–</button>
+    <button class="close-chat" title="Close Chat">×</button>
+  </div>
+  <div class="chat-messages"></div>
+  <form class="chat-input" onsubmit="handleSubmit(event)">
+    <textarea name="message" placeholder="Type a message..." rows="2"></textarea>
+    <button type="button" class="emoji-button" onclick="openEmojiPicker()">
+        😊
+    </button>
+    <button type="submit" class="btn send" title="Send Message">
+      <i class="fa-solid fa-paper-plane"></i>
+    </button>
+  </form>
+</div>
+<!-- Emoji Picker (hidden by default) -->
+<div id="emojiPicker" style="display:none;">
+    <div class="emoji-list"></div>
+  </div>
+
+
+    <script>
+
+        async function openEmojiPicker() {
+            const picker = document.getElementById('emojiPicker');
+            const emojiList = picker.querySelector('.emoji-list');
+            
+            console.log('Opening emoji picker...'); // Debugging log
+        
+            // Clear current emojis in the picker
+            emojiList.innerHTML = '';
+        
+            // Load emojis (static example list, could be dynamic)
+            const emojis = [
+    '😀', '😂', '😍', '😎', '😭', '😢', '😜', '😅', '😊', '😄', '😋', '🙌', '🥳', '😱', '🥺', '🤔',
+    '😆', '😏', '😉', '😬', '💀', '👻', '👀', '🎉', '✨', '🔥', '🌹', '💯', '👑', '😌', '😈', '💖',
+    '❤️', '💔', '💘', '💝', '🌈', '🦄', '🎶', '🎵', '🎧', '📸', '📱', '💻', '🖥️', '🖨️', '🖱️', '🎮',
+    '🏆', '🥇', '🥈', '🥉', '🏅', '🏀', '⚽', '🏈', '⚾', '🎯', '🎲', '🧩', '🃏', '🀄', '♠️', '♥️',
+    '♦️', '♣️', '🖤', '💚', '💙', '💛', '💜', '💙', '💚', '🧡', '🖤', '🤩', '😋', '🤡', '😴', '😷', 
+    '🤒', '🤕', '😷', '💉', '💊', '🧑‍⚕️', '👩‍⚕️', '👨‍⚕️', '👨‍🍳', '👩‍🍳', '💃', '🕺', '🦸‍♂️', '🦸‍♀️',
+    '👸', '🤴', '🦹‍♂️', '🦹‍♀️', '🤶', '🎅', '🧝‍♂️', '🧝‍♀️', '👨‍🎤', '👩‍🎤', '👨‍🎨', '👩‍🎨', '🧑‍🏫', '🧑‍🏭',
+    '🧑‍🔬', '🧑‍💻', '🧑‍🚀', '🧑‍✈️', '👩‍⚖️', '🧑‍⚖️', '🧑‍🌾', '🧑‍🍳', '🧑‍🍄', '🧑‍💼', '🤵', '👰', '👼',
+    '👑', '👗', '👠', '👢', '👚', '🧣', '🧤', '🧥', '🧢', '👒', '⛑️', '🎩', '🧶', '🧵', '🧺', '🛍️', '🪙'
+];
+
+        
+            // Add emojis to the picker
+           // Ensure each emoji is clickable
+emojis.forEach(emoji => {
+    const emojiElement = document.createElement('span');
+    emojiElement.className = 'emoji';
+    emojiElement.textContent = emoji;
+    
+    // Add click event to insert emoji
+    emojiElement.addEventListener('click', function() {
+        insertEmoji(emoji);  // Insert emoji on click
+    });
+    
+    emojiList.appendChild(emojiElement);
+});
+
+            // Toggle emoji picker visibility
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        }
+        
+
+        function insertEmoji(emoji) {
+            const chatElement = document.querySelector('.chat-popup[data-username]');
+            const textarea = chatElement.querySelector('textarea'); // Ensure we are targeting the correct textarea
+            
+            textarea.value += emoji; // Append emoji to current message
+           
+        }
+        
+        
+
+        window.addEventListener('click', function(e) {
+            const picker = document.getElementById('emojiPicker');
+            if (!picker.contains(e.target) && !e.target.classList.contains('emoji-button') && !e.target.classList.contains('emoji')) {
+                picker.style.display = 'none';
+            }
+        });
+        
+
+
+        let activeChats = [];
+        const maxChats = 3;
+
+        function openChat(username) {
+            if (activeChats.includes(username)) {
+                return;
+            }
+
+            if (activeChats.length >= maxChats) {
+                const oldestChat = activeChats.shift();
+                document.querySelector(`[data-username="${oldestChat}"]`).remove();
+            }
+
+            const template = document.getElementById('chatPopupTemplate');
+            const chat = template.cloneNode(true);
+            chat.id = '';
+            chat.style.display = 'block';
+            chat.setAttribute('data-username', username);
+            chat.style.right = `${(activeChats.length * 320) + 20}px`;
+
+            // Update avatar and username
+            const userItem = Array.from(document.querySelectorAll('.conversation-item'))
+                .find(item => item.querySelector('.username').textContent === username);
+            
+            if (userItem) {
+                const avatar = userItem.querySelector('.chat-avatar').src;
+                chat.querySelector('.chat-avatar').src = avatar;
+            } else {
+                chat.querySelector('.chat-avatar').src = "{{ url_for('static', filename='uploads/default.jpg') }}";
+            }
+            
+            const usernameElement = chat.querySelector('.chat-profile-link');
+            usernameElement.textContent = username;
+            usernameElement.href = `/profile/${username}`;
+
+            chat.querySelector('.close-chat').onclick = () => closeChat(chat, username);
+            chat.querySelector('.minimize-chat').onclick = () => minimizeChat(chat);
+            
+            loadChatHistory(chat, username);
+
+            document.body.appendChild(chat);
+            activeChats.push(username);
+
+            // Remove unread indicator if present
+            const conversationItem = document.querySelector(`.conversation-item[onclick*="${username}"]`);
+            const unreadDot = conversationItem?.querySelector('.unread-indicator');
+            if (unreadDot) {
+                unreadDot.remove();
+            }
+        }
+
+        function closeChat(chatElement, username) {
+            chatElement.remove();
+            activeChats = activeChats.filter(chat => chat !== username);
+        }
+        function minimizeChat(chatElement) {
+            const messages = chatElement.querySelector('.chat-messages');
+            const input = chatElement.querySelector('.chat-input');
+            const chatHeader = chatElement.querySelector('.chat-header');
+        
+            // Toggle between minimized and maximized states
+            if (messages.style.display === 'none') {
+                // Maximize
+                messages.style.display = 'block';
+                input.style.display = 'flex';
+                chatElement.style.height = '400px';
+                chatHeader.style.height = '40px'; // Header remains visible
+                chatElement.classList.remove('minimized'); // Remove minimized class
+                chatElement.classList.add('maximized'); // Add maximized class
+            } else {
+                // Minimize
+                messages.style.display = 'none';
+                input.style.display = 'none';
+                chatElement.style.height = '40px';
+                chatHeader.style.height = '40px'; // Only header visible
+                chatElement.classList.remove('maximized'); // Remove maximized class
+                chatElement.classList.add('minimized'); // Add minimized class
+            }
+        }
+        
+        
+        
+
+        function getRelativeTime(date) {
+            const now = new Date();
+            const diff = Math.floor((now - new Date(date)) / 1000);
+            
+            if (diff < 60) {
+                return "just now";
+            } else if (diff < 3600) {
+                const mins = Math.floor(diff / 60);
+                return `${mins} min${mins !== 1 ? 's' : ''} ago`;
+            } else if (diff < 86400) {
+                const hours = Math.floor(diff / 3600);
+                return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+            } else {
+                const days = Math.floor(diff / 86400);
+                return `${days} day${days !== 1 ? 's' : ''} ago`;
+            }
+        }
+
+     // Function to update the recent chats list
+     function updateRecentChatForUser(username, content, status) {
+        const conversationList = document.querySelector('.conversation-list');
+        let found = false;
+        const items = conversationList.querySelectorAll('.conversation-item');
+        items.forEach(item => {
+          const userSpan = item.querySelector('.username');
+          if (userSpan && userSpan.textContent.trim() === username) {
+            // Update the last message and status
+            const lastMsgElem = item.querySelector('.last-message');
+            if (lastMsgElem) {
+              lastMsgElem.textContent = content;
+            }
+            const statusElem = item.querySelector('.message-status.small');
+            if (statusElem) {
+              statusElem.textContent = status;
+            }
+            // Move this item to the top of the list
+            conversationList.prepend(item);
+            found = true;
+          }
+        });
+        if (!found) {
+          // Create a new conversation item if one doesn't exist
+          const newItem = document.createElement('div');
+          newItem.className = 'conversation-item';
+          newItem.setAttribute('onclick', `openChat('${username}')`);
+          newItem.innerHTML = `
+            <img src="{{ url_for('static', filename='uploads/default.jpg') }}" 
+                 alt="${username}'s avatar" class="chat-avatar">
+            <div class="conversation-info">
+                <span class="username">${username}</span>
+                <span class="last-message">${content}</span>
+                <span class="message-status small">${status}</span>
+            </div>
+          `;
+          conversationList.prepend(newItem);
+        }
+      }
+      
+
+      async function handleSubmit(event) {
+        event.preventDefault();
+        const chatElement = event.target.closest('.chat-popup');
+        const username = chatElement.getAttribute('data-username');
+        const textarea = chatElement.querySelector('textarea');
+        const content = textarea.value.trim();
+    
+        if (!content) return;
+    
+        try {
+            const response = await fetch('/send_message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipient: username, content: content })
+            });
+    
+            if (response.ok) {
+                textarea.value = '';
+                const messagesContainer = chatElement.querySelector('.chat-messages');
+                const newMessage = document.createElement('div');
+                newMessage.className = 'chat-message sent';
+                newMessage.innerHTML = `
+                    <div class="message-bubble">${content}</div>
+                    <div class="message-status">sent</div>
+                `;
+                messagesContainer.appendChild(newMessage);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                // Update the recent chat list for this user immediately:
+                updateRecentChatForUser(username, content, 'just now');
+            } else {
+                console.error('Error sending message:', await response.json());
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+        }
+    }
+  // Reload the page every 1 minute (60000 milliseconds)
+setInterval(() => {
+    location.reload();
+}, 60000);  // 1 minute interval
+  
+
+// Modify the loadChatHistory function to update the recent chats after receiving messages
+async function loadChatHistory(chatElement, username) {
+    try {
+        const response = await fetch(`/get_chat_history/${username}`);
+        const messages = await response.json();
+
+        const messagesContainer = chatElement.querySelector('.chat-messages');
+        messagesContainer.innerHTML = messages.map(msg => `
+            <div class="chat-message ${msg.sender_id == '{{ session.user_id }}' ? 'sent' : 'received'}">
+                <div class="message-bubble">${msg.content}</div>
+                <div class="message-status" data-message-id="${msg.id}">
+                    ${msg.sender_id == '{{ session.user_id }}' ? msg.status : ""}
+                </div>
+            </div>
+        `).join('');
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        if (messages.length > 0) {
+            await fetch(`/mark_messages_as_read/${username}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            // Update status in both chat and conversation list
+            const statusElements = document.querySelectorAll('.message-status');
+            statusElements.forEach(element => {
+                if (element.textContent === "sent") {
+                    element.textContent = "read";
+                }
+            });
+
+            // Update conversation list status
+            const conversationItem = document.querySelector(`.conversation-item[onclick*="${username}"]`);
+            if (conversationItem) {
+                const statusElement = conversationItem.querySelector('.message-status.small');
+                if (statusElement && statusElement.textContent === "sent") {
+                    statusElement.textContent = "read";
+                }
+            }
+
+            // Refresh the recent chats list after receiving messages
+            await updateRecentChats();
+        }
+
+    } catch (error) {
+        console.error('Error loading chat history:', error);
+    }
+}
+
+        
+        
+        
+        
+        
+        
+        // Automatically refresh the chat list every 5 seconds (optional)
+        setInterval(updateRecentChats, 5000);
+                
+
+        // ... keep existing functions (openChat, closeChat, minimizeChat)
+
+        // Add a function to update relative times periodically
+        function updateRelativeTimes() {
+            const statusElements = document.querySelectorAll('.message-status.small');
+            statusElements.forEach(element => {
+                const timestamp = element.getAttribute('data-timestamp');
+                if (timestamp) {
+                    element.textContent = getRelativeTime(timestamp);
+                }
+            });
+        }
+
+        // Update relative times every minute
+        setInterval(updateRelativeTimes, 60000);
+
+        // ... keep existing chat functions
+
+
+        
+        function markMessagesAsRead() {
+            const messageStatusElements = document.querySelectorAll('.message-status');
+        
+            messageStatusElements.forEach(statusElement => {
+                if (statusElement.textContent === "Sent") {
+                    statusElement.textContent = "Read";
+                }
+            });
+        }
+                
+
+        
+        
+
+
+        function showLogoutModal() {
+          document.getElementById("logoutModal").style.display = "flex";
+      }
+      
+      function closeLogoutModal() {
+          document.getElementById("logoutModal").style.display = "none";
+      }
+      
+      function logoutUser() {
+          window.location.href = "/logout";
+      }
+    </script>
+</body>
+</html>

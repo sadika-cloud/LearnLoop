@@ -1,0 +1,17 @@
+<div class="logo">LearnLoop</div>
+
+<div class="search-container">
+    <button id="search-toggle" class="btn primary" onclick="toggleSearch()">
+        <span id="close-icon" style="display:none;"><i class="fa fa-times"></i></span>
+    </button>
+    <div id="search-bar" class="search-bar" style="display:none;">
+        <form action="{{ url_for('search') }}" method="GET" class="search-form">
+            <input type="text" name="q" placeholder="Search..." required>
+            <select name="type" class="search-type">
+                <option value="projects">Projects</option>
+                <option value="users">Users</option>
+            </select>
+            <button type="submit" class="btn primary"><i class="fa fa-search"></i></button>
+        </form>
+    </div>
+</div>
